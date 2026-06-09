@@ -3,14 +3,8 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle
+  ButtonStyle
 } = require('discord.js');
-const PixPayment = require('../models/PixPayment');
-const { validarPixComIA } = require('../utils/validarPixIA');
-const { entregarProdutoAutomatico } = require('../utils/entregarProduto');
 const Config = require('../../config');
 
 module.exports = {
@@ -38,26 +32,9 @@ module.exports = {
   async execute(interaction) {
     const valor = interaction.options.getNumber('valor');
     const produtoId = interaction.options.getString('produto');
-    const usuarioId = interaction.user.id;
-    
+    const nomeProduto = produtoId.split('-')[0].toUpperCase();
+
     try {
-      // Criar registro de pagamento
-      const pagamento = new PixPayment({
-        usuarioId,
-        username: interaction.user.username,
-        valor,
-        status: 'aguardando',
-        produtoId,
-        produtos: [{
-          id: produtoId,
-          nome: produtoId.split('-')[0].toUpperCase(),
-          valor,
-          quantidade: 1
-        }]
-      });
-      
-      await pagamento.save();
-      
       // Criar embed com dados do PIX
       const embed = new EmbedBuilder()
         .setColor(Config.CORES.pix)
@@ -72,6 +49,11 @@ module.exports = {
           {
             name: `${Config.EMOJIS.dinheiro} Valor`,
             value: `**R$ ${valor.toFixed(2)}**`,
+            inline: true
+          },
+          {
+            name: '📦 Produto',
+            value: `**${nomeProduto}**`,
             inline: true
           },
           {
@@ -91,17 +73,17 @@ module.exports = {
           },
           {
             name: '📝 Como pagar:',
-            value: '1. Abra seu app de banco\n2. Clique em PIX → Copiar e colar\n3. Cole a chave acima\n4. Coloque o valor\n5. Clique em enviar\n6. Volte aqui e clique em [Enviei PIX]',
+            value: '1. Abra seu app de banco\n2. Clique em PIX → Copiar e colar\n3. Cole a chave acima\n4. Coloque o valor\n5. Clique em enviar\n6. Volte aqui e clique em **Enviei o PIX**',
             inline: false
           }
         )
         .setImage(Config.PIX.qrCodeUrl)
-        .setFooter({ 
-          text: `ID: ${pagamento._id}`,
+        .setFooter({
+          text: `Solicitado por ${interaction.user.username}`,
           iconURL: interaction.user.displayAvatarURL()
         })
         .setTimestamp();
-      
+
       // Botões
       const row = new ActionRowBuilder()
         .addComponents(
@@ -110,26 +92,26 @@ module.exports = {
             .setLabel('Enviei o PIX')
             .setStyle(ButtonStyle.Success)
             .setEmoji('✅'),
-          
+
           new ButtonBuilder()
             .setCustomId('cancelar-pix')
             .setLabel('Cancelar')
             .setStyle(ButtonStyle.Danger)
             .setEmoji('❌')
         );
-      
+
       await interaction.reply({
         embeds: [embed],
         components: [row],
         ephemeral: false
       });
-      
-      console.log(`✅ Pagamento criado: ${pagamento._id} - R$ ${valor}`);
-      
+
+      console.log(`✅ Instrução de pagamento enviada para ${interaction.user.username} - R$ ${valor.toFixed(2)} (${produtoId})`);
+
     } catch (error) {
       console.error('❌ Erro ao processar pagamento:', error);
       await interaction.reply({
-        content: '❌ Erro ao processar pagamento',
+        content: '❌ Erro ao processar pagamento. Tente novamente mais tarde.',
         ephemeral: true
       });
     }
